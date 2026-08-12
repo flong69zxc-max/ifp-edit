@@ -3,7 +3,7 @@ name: Parse IFP
 on:
   push:
     paths:
-      - 'input/python.ifp'
+      - 'input/*.ifp'
   workflow_dispatch:
 
 jobs:
@@ -18,8 +18,9 @@ jobs:
           curl -L -o anim_parser.exe https://github.com/Daniel-Cortez/sa-anim-parser/releases/download/v1.0/anim_parser.exe
       
       - name: Parse IFP file
+        shell: cmd
         run: |
-          .\anim_parser.exe input\python.ifp > output\python_parsed.txt
+          anim_parser.exe input\python.ifp > output\python_parsed.txt
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
