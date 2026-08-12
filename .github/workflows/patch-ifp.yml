@@ -7,44 +7,49 @@ jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
+      
       - name: Install rwfury
         run: pip install rwfury
-
-      - name: Remove animations
+      
+      - name: Fix header and remove animations
         run: |
           python -c "
           import os
           from rwfury import Ifp
           
-          # Пытаемся загрузить файл вручную
+          # Фиксим заголовок
           with open('input/python.ifp', 'rb') as f:
-              data = f.read()
-              
-          # Попытка обойти стандартную загрузку
-          try:
-              ifp = Ifp.from_bytes(data)
-          except:
-              # Если не получается, создаем новый файл с теми же данными
-              ifp = Ifp()
-              # Здесь нужна логика ручного парсинга
-              
-          # Удаляем анимации
-          # ifp.remove_animation('python_reload')
-          # ifp.remove_animation('python_crouchreload')
+              data = bytearray(f.read())
           
-          # Сохраняем
+          if data[:12] == b'ANP3PYTHON\x00\x00\x00':
+              data[:4] = b'ANP3'
+              data[4:12] = b'\x00' * 8
+              with open('input/python_fixed.ifp', 'wb') as f:
+                  f.write(data)
+              print('✅ Fixed header')
+              input_file = 'input/python_fixed.ifp'
+          else:
+              input_file = 'input/python.ifp'
+          
+          # Обрабатываем через rwfury
+          ifp = Ifp.from_file(input_file)
+          print(f'Loaded: {list(ifp.animations.keys())}')
+          
+          ifp.remove_animation('python_reload')
+          ifp.remove_animation('python_crouchreload')
+          print('✅ Removed animations')
+          
           os.makedirs('output', exist_ok=True)
           ifp.to_file('output/python_clean.ifp')
+          print('✅ Saved')
           "
-
+      
       - name: Upload patched file
         uses: actions/upload-artifact@v4
         with:
