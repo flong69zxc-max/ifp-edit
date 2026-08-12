@@ -20,44 +20,43 @@ jobs:
           python-version: '3.11'
       
       - name: Install dependencies
-        run: |
-          pip install rwfury
+        run: pip install rwfury
       
       - name: Remove animations from IFP
         run: |
           python -c "
-import sys
-import os
-from rwfury import Ifp
-
-input_file = 'input/python.ifp'
-anims_to_remove = ['python_reload', 'python_crouchreload']
-output_file = 'output/python_clean.ifp'
-
-if not os.path.exists(input_file):
-    print(f'Error: {input_file} not found!')
-    sys.exit(1)
-
-try:
-    ifp = Ifp.from_file(input_file)
-    print(f'Loaded {input_file}')
-    print(f'Animations found: {list(ifp.animations.keys())}')
-    
-    for name in anims_to_remove:
-        if name in ifp.animations:
-            ifp.remove_animation(name)
-            print(f'Removed: {name}')
-        else:
-            print(f'Animation not found: {name}')
-    
-    os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
-    ifp.to_file(output_file)
-    print(f'Saved to: {output_file}')
-    
-except Exception as e:
-    print(f'Error: {e}')
-    sys.exit(1)
-"
+          import sys
+          import os
+          from rwfury import Ifp
+          
+          input_file = 'input/python.ifp'
+          anims_to_remove = ['python_reload', 'python_crouchreload']
+          output_file = 'output/python_clean.ifp'
+          
+          if not os.path.exists(input_file):
+              print(f'Error: {input_file} not found!')
+              sys.exit(1)
+          
+          try:
+              ifp = Ifp.from_file(input_file)
+              print(f'Loaded {input_file}')
+              print(f'Animations found: {list(ifp.animations.keys())}')
+              
+              for name in anims_to_remove:
+                  if name in ifp.animations:
+                      ifp.remove_animation(name)
+                      print(f'Removed: {name}')
+                  else:
+                      print(f'Animation not found: {name}')
+              
+              os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
+              ifp.to_file(output_file)
+              print(f'Saved to: {output_file}')
+              
+          except Exception as e:
+              print(f'Error: {e}')
+              sys.exit(1)
+          "
       
       - name: Upload patched file
         uses: actions/upload-artifact@v4
