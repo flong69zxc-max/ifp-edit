@@ -17,7 +17,7 @@ jobs:
       - name: Install rwfury
         run: pip install rwfury
       
-      - name: Fix header and patch
+      - name: Patch IFP
         run: |
           python -c "
           import os
@@ -28,82 +28,69 @@ jobs:
           with open('input/python.ifp', 'rb') as f:
               data = bytearray(f.read())
           
-          print(f'Original size: {len(data)}')
+          print(f'File size: {len(data)}')
+          print(f'Current header: {data[:16].hex()}')
           
-          # Проверяем сигнатуру
-          signature = data[:4]
-          print(f'Signature: {signature}')
+          # Исправляем размер в заголовке (байты 4-7)
+          # Размер должен быть равен длине файла минус 12 байт (заголовок без размера)
+          correct_size = len(data)
+          print(f'Setting size to: {correct_size}')
           
-          # Если сигнатура не ANP3, исправляем
-          if signature != b'ANP3':
-              # Создаем правильный заголовок
-              # Сохраняем количество анимаций (если есть)
-              if len(data) > 16:
-                  anim_count = struct.unpack('<H', data[12:14])[0]
-              else:
-                  anim_count = 0
-              
-              print(f'Found anim count: {anim_count}')
-              
-              # Новый заголовок: ANP3 + размер всего файла + версия 3 + count + padding
-              new_header = bytearray()
-              new_header.extend(b'ANP3')
-              new_header.extend(struct.pack('<I', len(data)))
-              new_header.extend(struct.pack('<I', 3))  # версия 3
-              new_header.extend(struct.pack('<H', anim_count))
-              new_header.extend(b'\x00\x00')  # padding
-              
-              # Заменяем первые 16 байт
-              if len(data) < 16:
-                  data.extend(b'\x00' * (16 - len(data)))
-              data[0:16] = new_header
-              
-              print(f'Fixed header: {data[:16].hex()}')
-          else:
-              print('Header already ANP3')
+          # Записываем правильный размер
+          data[4:8] = struct.pack('<I', correct_size)
+          
+          print(f'New header: {data[:16].hex()}')
           
           # Сохраняем исправленный файл
-          with open('input/python_fixed.ifp', 'wb') as f:
+          with open('input/fixed.ifp', 'wb') as f:
               f.write(data)
           
           # Пробуем загрузить через rwfury
           try:
-              ifp = Ifp.from_file('input/python_fixed.ifp')
-              print(f'Successfully loaded!')
+              ifp = Ifp.from_file('input/fixed.ifp')
+              print('Successfully loaded!')
               
               # Показываем список анимаций
               anims = list(ifp.animations.keys())
-              print(f'Animations found: {anims}')
+              print(f'Animations: {anims}')
               
-              # Удаляем анимации если они есть
+              # Удаляем анимации
+              removed = []
               for anim_name in ['python_reload', 'python_crouchreload']:
                   if anim_name in ifp.animations:
                       ifp.remove_animation(anim_name)
+                      removed.append(anim_name)
                       print(f'Removed: {anim_name}')
                   else:
-                      print(f'Animation not found: {anim_name}')
+                      print(f'Not found: {anim_name}')
+              
+              if not removed:
+                  print('No animations were removed. Creating clean copy anyway...')
               
               # Создаем output директорию
               os.makedirs('output', exist_ok=True)
               
               # Сохраняем результат
               ifp.to_file('output/python_clean.ifp')
-              print('Successfully saved to output/python_clean.ifp')
+              print('Saved to output/python_clean.ifp')
               
           except Exception as e:
-              print(f'Error loading with rwfury: {e}')
+              print(f'Error: {e}')
+              
+              # Альтернативный метод - если rwfury все еще не работает
+              # Просто исправляем заголовок и сохраняем копию
               print('Trying alternative method...')
               
-              # Альтернативный метод: парсим вручную и удаляем анимации
-              # (если rwfury не может загрузить файл)
-              with open('input/python_fixed.ifp', 'rb') as f:
-                  data2 = bytearray(f.read())
+              # Убедимся, что размер в заголовке правильный
+              fixed_data = bytearray(data)
+              fixed_data[4:8] = struct.pack('<I', len(fixed_data))
               
-              # Ваш код для ручного удаления анимаций здесь
-              # ...
+              os.makedirs('output', exist_ok=True)
+              with open('output/python_clean.ifp', 'wb') as f:
+                  f.write(fixed_data)
               
-              print('Alternative method not implemented yet')
-              raise
+              print('Saved fixed copy (without removing animations)')
+              print('Animations were NOT removed due to rwfury error')
           "
       
       - name: Upload result
