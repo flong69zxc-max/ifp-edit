@@ -17,80 +17,61 @@ jobs:
       - name: Install rwfury
         run: pip install rwfury
       
-      - name: Patch IFP
+      - name: Remove animations from IFP
         run: |
           python -c "
           import os
           import struct
           from rwfury import Ifp
           
-          # Читаем файл
+          # Читаем оригинальный файл
           with open('input/python.ifp', 'rb') as f:
               data = bytearray(f.read())
           
-          print(f'File size: {len(data)}')
-          print(f'Current header: {data[:16].hex()}')
+          print(f'Original file size: {len(data)}')
           
-          # Исправляем размер в заголовке (байты 4-7)
-          # Размер должен быть равен длине файла минус 12 байт (заголовок без размера)
-          correct_size = len(data)
-          print(f'Setting size to: {correct_size}')
-          
-          # Записываем правильный размер
-          data[4:8] = struct.pack('<I', correct_size)
-          
-          print(f'New header: {data[:16].hex()}')
+          # Исправляем заголовок
+          # ANP3 (4) + размер (4) + версия (4) + количество анимаций (2) + padding (2)
+          if data[:4] == b'ANP3':
+              # Обновляем размер в заголовке
+              data[4:8] = struct.pack('<I', len(data))
+              print(f'Fixed header size to: {len(data)}')
           
           # Сохраняем исправленный файл
           with open('input/fixed.ifp', 'wb') as f:
               f.write(data)
           
-          # Пробуем загрузить через rwfury
-          try:
-              ifp = Ifp.from_file('input/fixed.ifp')
-              print('Successfully loaded!')
-              
-              # Показываем список анимаций
-              anims = list(ifp.animations.keys())
-              print(f'Animations: {anims}')
-              
-              # Удаляем анимации
-              removed = []
-              for anim_name in ['python_reload', 'python_crouchreload']:
-                  if anim_name in ifp.animations:
-                      ifp.remove_animation(anim_name)
-                      removed.append(anim_name)
-                      print(f'Removed: {anim_name}')
-                  else:
-                      print(f'Not found: {anim_name}')
-              
-              if not removed:
-                  print('No animations were removed. Creating clean copy anyway...')
-              
-              # Создаем output директорию
-              os.makedirs('output', exist_ok=True)
-              
-              # Сохраняем результат
-              ifp.to_file('output/python_clean.ifp')
-              print('Saved to output/python_clean.ifp')
-              
-          except Exception as e:
-              print(f'Error: {e}')
-              
-              # Альтернативный метод - если rwfury все еще не работает
-              # Просто исправляем заголовок и сохраняем копию
-              print('Trying alternative method...')
-              
-              # Убедимся, что размер в заголовке правильный
-              fixed_data = bytearray(data)
-              fixed_data[4:8] = struct.pack('<I', len(fixed_data))
-              
-              os.makedirs('output', exist_ok=True)
-              with open('output/python_clean.ifp', 'wb') as f:
-                  f.write(fixed_data)
-              
-              print('Saved fixed copy (without removing animations)')
-              print('Animations were NOT removed due to rwfury error')
+          # Загружаем через rwfury
+          ifp = Ifp.from_file('input/fixed.ifp')
+          
+          print(f'Animations found: {list(ifp.animations.keys())}')
+          
+          # Удаляем анимации
+          removed = []
+          for anim in ['python_reload', 'python_crouchreload']:
+              if anim in ifp.animations:
+                  ifp.remove_animation(anim)
+                  removed.append(anim)
+                  print(f'✓ Removed: {anim}')
+              else:
+                  print(f'✗ Not found: {anim}')
+          
+          # Сохраняем с удаленными анимациями
+          os.makedirs('output', exist_ok=True)
+          ifp.to_file('output/python_clean.ifp')
+          
+          # Проверяем результат
+          with open('output/python_clean.ifp', 'rb') as f:
+              clean_data = f.read()
+          
+          print(f'Clean file size: {len(clean_data)}')
+          
+          # Дополнительно проверяем заголовок
+          if clean_data[:4] == b'ANP3':
+              anim_count = struct.unpack('<H', clean_data[12:14])[0]
+              print(f'Animations in clean file: {anim_count}')
+          
+          print('Done!')
           "
       
       - name: Upload result
