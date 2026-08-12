@@ -1,42 +1,57 @@
-name: Patch IFP with rwfury
+name: Patch IFP - Remove Animations
 
 on:
-  workflow_dispatch: # Для ручного запуска
+  workflow_dispatch:
 
 jobs:
   patch:
     runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+      
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
-      - name: Install rwfury
-        run: pip install rwfury
-
+      
+      - name: Install gtamods-tools
+        run: |
+          pip install git+https://github.com/gtamods/gtamods-tools.git
+      
       - name: Remove animations
         run: |
           python -c "
-          from rwfury import Ifp
+          from gtamods.ifp import IfpFile
           
           # Загружаем файл
-          ifp = Ifp.from_file('input/python.ifp')
+          with open('input/python.ifp', 'rb') as f:
+              ifp = IfpFile.read(f)
+          
+          print(f'Loaded, animations: {list(ifp.animations.keys())}')
           
           # Удаляем анимации
-          ifp.remove_animation('python_reload')
-          ifp.remove_animation('python_crouchreload')
+          if 'python_reload' in ifp.animations:
+              del ifp.animations['python_reload']
+              print('✅ Removed python_reload')
           
-          # Сохраняем в output
-          ifp.to_file('output/python_clean.ifp')
-          print('✅ Анимации успешно удалены!')
+          if 'python_crouchreload' in ifp.animations:
+              del ifp.animations['python_crouchreload']
+              print('✅ Removed python_crouchreload')
+          
+          # Сохраняем
+          import os
+          os.makedirs('output', exist_ok=True)
+          with open('output/python_clean.ifp', 'wb') as f:
+              IfpFile.write(ifp, f)
+          
+          print('✅ Saved to output/python_clean.ifp')
           "
-
+      
       - name: Upload patched file
         uses: actions/upload-artifact@v4
         with:
           name: patched-ifp
           path: output/python_clean.ifp
+          retention-days: 30
