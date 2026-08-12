@@ -1,5 +1,4 @@
 name: Parse IFP
-
 on:
   push:
     paths:
@@ -9,21 +8,30 @@ on:
 jobs:
   parse:
     runs-on: windows-latest
-    
+
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Download anim_parser
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: git make gcc
+
+      - name: Build anim_parser
+        shell: msys2 {0}
         run: |
-          curl -L -o anim_parser.exe https://github.com/Daniel-Cortez/sa-anim-parser/releases/download/v1.0/anim_parser.exe
-      
+          git clone https://github.com/Daniel-Cortez/sa-anim-parser.git
+          cd sa-anim-parser
+          make
+
       - name: Parse IFP file
-        shell: cmd
+        shell: msys2 {0}
         run: |
-          anim_parser.exe input\python.ifp > output\python_parsed.txt
-      
+          ./sa-anim-parser/anim_parser.exe input/python.ifp > output/python_parsed.txt
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: parsed-animation
-          path: output\python_parsed.txt
+          path: output/python_parsed.txt
