@@ -28,42 +28,82 @@ jobs:
           with open('input/python.ifp', 'rb') as f:
               data = bytearray(f.read())
           
-          print(f'Size: {len(data)}')
+          print(f'Original size: {len(data)}')
           
-          # Создаем правильный заголовок ANP3
-          # ANP3 (4 байта) + размер (4 байта) + версия (4 байта) + количество (2 байта)
-          new_header = bytearray()
-          new_header.extend(b'ANP3')  # сигнатура
-          new_header.extend(struct.pack('<I', len(data)))  # размер файла
-          new_header.extend(struct.pack('<I', 3))  # версия 3 (ANP3)
+          # Проверяем сигнатуру
+          signature = data[:4]
+          print(f'Signature: {signature}')
           
-          # Копируем количество анимаций из старого файла (байты 12-13)
-          anim_count = struct.unpack('<H', data[12:14])[0]
-          new_header.extend(struct.pack('<H', anim_count))  # количество
-          new_header.extend(b'\x00\x00')  # padding
-          
-          # Заменяем заголовок (первые 16 байт)
-          data[0:16] = new_header
-          
-          print(f'New header: {data[:16].hex()}')
-          print(f'Anim count: {anim_count}')
+          # Если сигнатура не ANP3, исправляем
+          if signature != b'ANP3':
+              # Создаем правильный заголовок
+              # Сохраняем количество анимаций (если есть)
+              if len(data) > 16:
+                  anim_count = struct.unpack('<H', data[12:14])[0]
+              else:
+                  anim_count = 0
+              
+              print(f'Found anim count: {anim_count}')
+              
+              # Новый заголовок: ANP3 + размер всего файла + версия 3 + count + padding
+              new_header = bytearray()
+              new_header.extend(b'ANP3')
+              new_header.extend(struct.pack('<I', len(data)))
+              new_header.extend(struct.pack('<I', 3))  # версия 3
+              new_header.extend(struct.pack('<H', anim_count))
+              new_header.extend(b'\x00\x00')  # padding
+              
+              # Заменяем первые 16 байт
+              if len(data) < 16:
+                  data.extend(b'\x00' * (16 - len(data)))
+              data[0:16] = new_header
+              
+              print(f'Fixed header: {data[:16].hex()}')
+          else:
+              print('Header already ANP3')
           
           # Сохраняем исправленный файл
           with open('input/python_fixed.ifp', 'wb') as f:
               f.write(data)
           
-          # Загружаем через rwfury
-          ifp = Ifp.from_file('input/python_fixed.ifp')
-          print(f'Loaded! Animations: {list(ifp.animations.keys())}')
-          
-          # Удаляем анимации
-          ifp.remove_animation('python_reload')
-          ifp.remove_animation('python_crouchreload')
-          print('Removed!')
-          
-          os.makedirs('output', exist_ok=True)
-          ifp.to_file('output/python_clean.ifp')
-          print('Saved!')
+          # Пробуем загрузить через rwfury
+          try:
+              ifp = Ifp.from_file('input/python_fixed.ifp')
+              print(f'Successfully loaded!')
+              
+              # Показываем список анимаций
+              anims = list(ifp.animations.keys())
+              print(f'Animations found: {anims}')
+              
+              # Удаляем анимации если они есть
+              for anim_name in ['python_reload', 'python_crouchreload']:
+                  if anim_name in ifp.animations:
+                      ifp.remove_animation(anim_name)
+                      print(f'Removed: {anim_name}')
+                  else:
+                      print(f'Animation not found: {anim_name}')
+              
+              # Создаем output директорию
+              os.makedirs('output', exist_ok=True)
+              
+              # Сохраняем результат
+              ifp.to_file('output/python_clean.ifp')
+              print('Successfully saved to output/python_clean.ifp')
+              
+          except Exception as e:
+              print(f'Error loading with rwfury: {e}')
+              print('Trying alternative method...')
+              
+              # Альтернативный метод: парсим вручную и удаляем анимации
+              # (если rwfury не может загрузить файл)
+              with open('input/python_fixed.ifp', 'rb') as f:
+                  data2 = bytearray(f.read())
+              
+              # Ваш код для ручного удаления анимаций здесь
+              # ...
+              
+              print('Alternative method not implemented yet')
+              raise
           "
       
       - name: Upload result
