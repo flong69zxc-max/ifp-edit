@@ -21,7 +21,7 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install rwfury>=0.9.0
+          pip install rwfury
       
       - name: Remove animations from IFP
         run: |
@@ -46,16 +46,16 @@ try:
     for name in anims_to_remove:
         if name in ifp.animations:
             ifp.remove_animation(name)
-            print(f'✅ Removed: {name}')
+            print(f'Removed: {name}')
         else:
-            print(f'⚠️  Animation not found: {name}')
+            print(f'Animation not found: {name}')
     
     os.makedirs(os.path.dirname(output_file) or '.', exist_ok=True)
     ifp.to_file(output_file)
-    print(f'✅ Saved to: {output_file}')
+    print(f'Saved to: {output_file}')
     
 except Exception as e:
-    print(f'❌ Error: {e}')
+    print(f'Error: {e}')
     sys.exit(1)
 "
       
