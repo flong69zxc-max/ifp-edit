@@ -1,81 +1,28 @@
-name: Patch IFP with rwfury
+name: Parse IFP
 
 on:
+  push:
+    paths:
+      - 'input/python.ifp'
   workflow_dispatch:
 
 jobs:
-  patch:
-    runs-on: ubuntu-latest
+  parse:
+    runs-on: windows-latest
+    
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      
-      - name: Install rwfury
-        run: pip install rwfury
-      
-      - name: Remove animations from IFP
+      - name: Download anim_parser
         run: |
-          python -c "
-          import os
-          import struct
-          from rwfury import Ifp
-          
-          # Читаем оригинальный файл
-          with open('input/python.ifp', 'rb') as f:
-              data = bytearray(f.read())
-          
-          print(f'Original file size: {len(data)}')
-          
-          # Исправляем заголовок
-          # ANP3 (4) + размер (4) + версия (4) + количество анимаций (2) + padding (2)
-          if data[:4] == b'ANP3':
-              # Обновляем размер в заголовке
-              data[4:8] = struct.pack('<I', len(data))
-              print(f'Fixed header size to: {len(data)}')
-          
-          # Сохраняем исправленный файл
-          with open('input/fixed.ifp', 'wb') as f:
-              f.write(data)
-          
-          # Загружаем через rwfury
-          ifp = Ifp.from_file('input/fixed.ifp')
-          
-          print(f'Animations found: {list(ifp.animations.keys())}')
-          
-          # Удаляем анимации
-          removed = []
-          for anim in ['python_reload', 'python_crouchreload']:
-              if anim in ifp.animations:
-                  ifp.remove_animation(anim)
-                  removed.append(anim)
-                  print(f'✓ Removed: {anim}')
-              else:
-                  print(f'✗ Not found: {anim}')
-          
-          # Сохраняем с удаленными анимациями
-          os.makedirs('output', exist_ok=True)
-          ifp.to_file('output/python_clean.ifp')
-          
-          # Проверяем результат
-          with open('output/python_clean.ifp', 'rb') as f:
-              clean_data = f.read()
-          
-          print(f'Clean file size: {len(clean_data)}')
-          
-          # Дополнительно проверяем заголовок
-          if clean_data[:4] == b'ANP3':
-              anim_count = struct.unpack('<H', clean_data[12:14])[0]
-              print(f'Animations in clean file: {anim_count}')
-          
-          print('Done!')
-          "
+          curl -L -o anim_parser.exe https://github.com/Daniel-Cortez/sa-anim-parser/releases/download/v1.0/anim_parser.exe
       
-      - name: Upload result
+      - name: Parse IFP file
+        run: |
+          .\anim_parser.exe input\python.ifp > output\python_parsed.txt
+      
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: patched-ifp
-          path: output/python_clean.ifp
+          name: parsed-animation
+          path: output\python_parsed.txt
