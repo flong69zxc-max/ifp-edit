@@ -1,41 +1,42 @@
-name: Patch IFP - Remove Animations
+name: Patch IFP with rwfury
 
 on:
-  push:
-    paths:
-      - 'input/python.ifp'
-  workflow_dispatch:
+  workflow_dispatch: # Для ручного запуска
 
 jobs:
   patch:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-      
-      - name: Install Python dependencies
-        run: |
-          pip install numpy
-      
-      - name: Install ifp_editor
-        run: |
-          git clone https://github.com/gtamods/ifp_editor.git
-          cd ifp_editor
-          python setup.py install || true
-      
+          python-version: '3.10'
+
+      - name: Install rwfury
+        run: pip install rwfury
+
       - name: Remove animations
         run: |
-          python scripts/remove_anims.py
-      
+          python -c "
+          from rwfury import Ifp
+          
+          # Загружаем файл
+          ifp = Ifp.from_file('input/python.ifp')
+          
+          # Удаляем анимации
+          ifp.remove_animation('python_reload')
+          ifp.remove_animation('python_crouchreload')
+          
+          # Сохраняем в output
+          ifp.to_file('output/python_clean.ifp')
+          print('✅ Анимации успешно удалены!')
+          "
+
       - name: Upload patched file
         uses: actions/upload-artifact@v4
         with:
           name: patched-ifp
           path: output/python_clean.ifp
-          retention-days: 30
