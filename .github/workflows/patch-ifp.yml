@@ -21,36 +21,43 @@ jobs:
         run: |
           python -c "
           import os
+          import struct
           from rwfury import Ifp
           
-          # Фиксим заголовок
           with open('input/python.ifp', 'rb') as f:
               data = bytearray(f.read())
           
-          if data[:12] == b'ANP3PYTHON\x00\x00\x00':
+          print(f'Size: {len(data)}')
+          print(f'Header: {data[:12]}')
+          
+          # Заменяем ANP3PYTHON на ANP3 (4 байта) + нули
+          if data[:12] == b'ANP3PYTHON\x00\x00\x00\x00':
               data[:4] = b'ANP3'
               data[4:12] = b'\x00' * 8
-              with open('input/python_fixed.ifp', 'wb') as f:
-                  f.write(data)
-              print('✅ Fixed header')
-              input_file = 'input/python_fixed.ifp'
-          else:
-              input_file = 'input/python.ifp'
+              print('Fixed header to ANP3')
           
-          # Обрабатываем через rwfury
-          ifp = Ifp.from_file(input_file)
-          print(f'Loaded: {list(ifp.animations.keys())}')
+          # Проверяем что получилось
+          print(f'New header: {data[:12]}')
           
+          # Сохраняем фикс-файл
+          with open('input/python_fixed.ifp', 'wb') as f:
+              f.write(data)
+          
+          # Пробуем через rwfury
+          ifp = Ifp.from_file('input/python_fixed.ifp')
+          print(f'Animations: {list(ifp.animations.keys())}')
+          
+          # Удаляем
           ifp.remove_animation('python_reload')
           ifp.remove_animation('python_crouchreload')
-          print('✅ Removed animations')
+          print('Removed!')
           
           os.makedirs('output', exist_ok=True)
           ifp.to_file('output/python_clean.ifp')
-          print('✅ Saved')
+          print('Saved!')
           "
       
-      - name: Upload patched file
+      - name: Upload result
         uses: actions/upload-artifact@v4
         with:
           name: patched-ifp
