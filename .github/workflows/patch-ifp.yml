@@ -17,37 +17,46 @@ jobs:
       - name: Install rwfury
         run: pip install rwfury
       
-      - name: Fix header and remove animations
+      - name: Fix header and patch
         run: |
           python -c "
           import os
           import struct
           from rwfury import Ifp
           
+          # Читаем файл
           with open('input/python.ifp', 'rb') as f:
               data = bytearray(f.read())
           
           print(f'Size: {len(data)}')
-          print(f'Header: {data[:12]}')
           
-          # Заменяем ANP3PYTHON на ANP3 (4 байта) + нули
-          if data[:12] == b'ANP3PYTHON\x00\x00\x00\x00':
-              data[:4] = b'ANP3'
-              data[4:12] = b'\x00' * 8
-              print('Fixed header to ANP3')
+          # Создаем правильный заголовок ANP3
+          # ANP3 (4 байта) + размер (4 байта) + версия (4 байта) + количество (2 байта)
+          new_header = bytearray()
+          new_header.extend(b'ANP3')  # сигнатура
+          new_header.extend(struct.pack('<I', len(data)))  # размер файла
+          new_header.extend(struct.pack('<I', 3))  # версия 3 (ANP3)
           
-          # Проверяем что получилось
-          print(f'New header: {data[:12]}')
+          # Копируем количество анимаций из старого файла (байты 12-13)
+          anim_count = struct.unpack('<H', data[12:14])[0]
+          new_header.extend(struct.pack('<H', anim_count))  # количество
+          new_header.extend(b'\x00\x00')  # padding
           
-          # Сохраняем фикс-файл
+          # Заменяем заголовок (первые 16 байт)
+          data[0:16] = new_header
+          
+          print(f'New header: {data[:16].hex()}')
+          print(f'Anim count: {anim_count}')
+          
+          # Сохраняем исправленный файл
           with open('input/python_fixed.ifp', 'wb') as f:
               f.write(data)
           
-          # Пробуем через rwfury
+          # Загружаем через rwfury
           ifp = Ifp.from_file('input/python_fixed.ifp')
-          print(f'Animations: {list(ifp.animations.keys())}')
+          print(f'Loaded! Animations: {list(ifp.animations.keys())}')
           
-          # Удаляем
+          # Удаляем анимации
           ifp.remove_animation('python_reload')
           ifp.remove_animation('python_crouchreload')
           print('Removed!')
